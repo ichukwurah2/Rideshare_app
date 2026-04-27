@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { rides } from '../utils/api';
 
 export default function RequestRide() {
   const [formData, setFormData] = useState({
@@ -45,12 +46,27 @@ export default function RequestRide() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    // Simulate ride request
-    console.log('Ride requested:', formData);
-    
+
+    try {
+      await rides.create({
+        rider_id: 1, // replace with the actual rider ID from auth/user context
+        pickup_location: formData.pickup,
+        dropoff_location: formData.dropoff,
+        request_time: new Date().toISOString(),
+        fare: Number(fare.total),
+        ride_status: 'requested',
+      });
+
+      console.log('Ride requested:', formData);
+    } catch (error) {
+      console.error('Failed to request ride:', error);
+      setSubmitted(false);
+      return;
+    }
+
     // Reset after 2 seconds
     setTimeout(() => {
       setSubmitted(false);

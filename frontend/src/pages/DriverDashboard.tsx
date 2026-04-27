@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StatsWidget from '../components/StatsWidget';
+import { rides } from '../utils/api';
 
 export default function DriverDashboard() {
   const [isOnline, setIsOnline] = useState(true);
-  const [currentRide] = useState({
+  const [currentRide, setCurrentRide] = useState({
     id: 'R001',
     pickup: '123 Main Street',
     dropoff: '456 Park Avenue',
@@ -29,6 +30,36 @@ export default function DriverDashboard() {
     { id: 2, time: '1:45 PM', fare: 12.50, distance: 8.2 },
     { id: 3, time: '1:00 PM', fare: 22.00, distance: 15.8 },
   ]);
+
+  useEffect(() => {
+    const loadCurrentRide = async () => {
+      try {
+        const response = await rides.list();
+        const rideList = response.data?.data ?? [];
+        const activeRide = rideList.find((ride: any) => ride.ride_status === 'in-progress');
+
+        if (activeRide) {
+          setCurrentRide({
+            id: activeRide.ride_id,
+            pickup: activeRide.pickup_location,
+            dropoff: activeRide.dropoff_location,
+            distance: activeRide.distance ?? 0,
+            duration: activeRide.duration ?? 'N/A',
+            fare: Number(activeRide.fare ?? 0),
+            riderName: `Rider ${activeRide.rider_id}`,
+            riderRating: activeRide.rider_rating ?? 0,
+            riderImage: '👤',
+            status: activeRide.ride_status,
+            pickupTime: new Date(activeRide.request_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load current ride:', error);
+      }
+    };
+
+    loadCurrentRide();
+  }, []);
 
   const toggleOnlineStatus = () => {
     setIsOnline(!isOnline);
