@@ -9,7 +9,6 @@ const asgardeoConfig = {
   baseURL: "https://YOUR_ORGANIZATION.asgardeo.io",
   signInRedirectURL: "http://localhost:5174",
   signOutRedirectURL: "http://localhost:5174",
-  responseMode: "form_post" as const,
   scope: ["openid", "profile", "email"],
   enablePKCE: true,
   clockTolerance: 60,
