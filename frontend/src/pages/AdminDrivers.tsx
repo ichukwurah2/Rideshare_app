@@ -22,33 +22,66 @@ export default function AdminDrivers() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'Active' | 'Deactivated'>('all');
   const [filterAvailable, setFilterAvailable] = useState<'all' | 'online' | 'offline'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [adding, setAdding] = useState(false);
+
+  const loadDrivers = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await drivers.list();
+      const data = response.data.data || [];
+      setAllDrivers(
+        data.map((item: any) => ({
+          id: item.driver_id,
+          name: `${item.first_name} ${item.last_name}`,
+          email: item.email,
+          phone: item.phone_number,
+          vehicle: `${item.vehicle_make} ${item.vehicle_model}`,
+          totalRides: 0,
+          earnings: '$0.00',
+          rating: item.rating ?? 0,
+          status: item.status === 'active' ? 'Active' : 'Deactivated',
+          isOnline: item.availability_status === 'available',
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+      setError('Unable to load drivers. Backend may be offline.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    drivers
-      .list()
-      .then((response) => {
-        const data = response.data.data || [];
-        setAllDrivers(
-          data.map((item: any) => ({
-            id: item.driver_id,
-            name: `${item.first_name} ${item.last_name}`,
-            email: item.email,
-            phone: item.phone_number,
-            vehicle: `${item.vehicle_make} ${item.vehicle_model}`,
-            totalRides: 0,
-            earnings: '$0.00',
-            rating: item.rating ?? 0,
-            status: item.status === 'active' ? 'Active' : 'Deactivated',
-            isOnline: item.availability_status === 'available',
-          }))
-        );
-      })
-      .catch((err) => {
-        console.error(err);
-        setError('Unable to load drivers. Backend may be offline.');
-      })
-      .finally(() => setLoading(false));
+    loadDrivers();
   }, []);
+
+  const handleAddDriver = async () => {
+    setAdding(true);
+    setError('');
+
+    try {
+      await drivers.create({
+        first_name: 'Test',
+        last_name: 'Driver',
+        email: `test.driver.${Date.now()}@example.com`,
+        phone_number: '555-0100',
+        vehicle_make: 'Toyota',
+        vehicle_model: 'Corolla',
+        license_plate: `TD${Math.floor(Math.random() * 9000) + 1000}`,
+        availability_status: 'available',
+        rating: 4.5,
+        status: 'active',
+      });
+      await loadDrivers();
+    } catch (err) {
+      console.error(err);
+      setError('Unable to create dummy driver. Please try again.');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const filteredDrivers = allDrivers.filter((driver) => {
     const matchesSearch = driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,8 +135,17 @@ export default function AdminDrivers() {
 
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Drivers List</h2>
+          <div className="flex justify-between items-center gap-4 flex-col sm:flex-row">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h2 className="text-xl font-bold text-gray-800">Drivers List</h2>
+              <button
+                onClick={handleAddDriver}
+                disabled={adding}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {adding ? 'Adding…' : 'Add Driver'}
+              </button>
+            </div>
             <input
               type="text"
               placeholder="Search by name or email..."
@@ -219,39 +261,53 @@ export default function AdminDrivers() {
               </tr>
             </thead>
             <tbody>
-              {paginatedDrivers.map((driver) => (
-                <tr key={driver.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-800">{driver.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{driver.vehicle}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{driver.totalRides}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">⭐ {driver.rating}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-green-600">{driver.earnings}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      driver.status === 'Active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {driver.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      driver.isOnline
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {driver.isOnline ? '🟢 Online' : '⚪ Offline'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex gap-2">
-                      <button className="text-blue-600 hover:text-blue-800 font-semibold">View</button>
-                      <button className="text-purple-600 hover:text-purple-800 font-semibold">Toggle</button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">
+                    Loading drivers...
                   </td>
                 </tr>
-              ))}
+              ) : filteredDrivers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">
+                    No drivers found.
+                  </td>
+                </tr>
+              ) : (
+                paginatedDrivers.map((driver) => (
+                  <tr key={driver.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-800">{driver.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{driver.vehicle}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{driver.totalRides}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">⭐ {driver.rating}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-green-600">{driver.earnings}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        driver.status === 'Active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {driver.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        driver.isOnline
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {driver.isOnline ? '🟢 Online' : '⚪ Offline'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex gap-2">
+                        <button className="text-blue-600 hover:text-blue-800 font-semibold">View</button>
+                        <button className="text-purple-600 hover:text-purple-800 font-semibold">Toggle</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
